@@ -1,0 +1,49 @@
+---
+
+- name: install nginx
+  package: name="{{ cortex_nginx_packages }}" state=present
+  when: cortex_install_nginx
+  tags: ['cortex']
+
+- name: Set httpd_can_network_connect flag on and keep it persistent across reboots
+  seboolean:
+    name: httpd_can_network_connect
+    state: yes
+    persistent: yes
+  when: cortex_install_nginx
+  tags: ['cortex']
+
+- name: ensure cortex cert is in place
+  copy: content="{{ cortex_nginx_ssl['certificate'] }}" dest="/etc/pki/tls/certs/cortex.crt" mode=0640 owner=root group=root
+  notify: reload nginx
+  when: cortex_configure_nginx and cortex_nginx_ssl['enabled']
+  tags: ['cortex']
+
+- name: ensure cortex ca bundle is in place
+  copy: content="{{ cortex_nginx_ssl['cabundle'] }}" dest="/etc/pki/tls/certs/cortex-cabundle.crt" mode=0640 owner=root group=root
+  when: cortex_configure_nginx and cortex_nginx_ssl['enabled'] and cabundle in cortex_nginx_ssl
+  notify: reload nginx
+  tags: ['cortex']
+
+- name: ensure cortex key is in place
+  copy: content="{{ cortex_nginx_ssl['key'] }}" dest="/etc/pki/tls/private/cortex.key" mode=0640 owner=root group=root
+  when: cortex_configure_nginx and cortex_nginx_ssl['enabled']
+  notify: reload nginx
+  tags: ['cortex']
+
+- name: ensure cortex nginx config is in place
+  template:
+    src: etc.nginx.conf.d.cortex.conf.j2
+    dest: /etc/nginx/conf.d/cortex.conf
+    owner: root
+    group: root
+    mode: 0640
+  notify: reload nginx
+  when: cortex_configure_nginx
+  tags: ['cortex']
+
+- name: enable and start nginx
+  service: name=nginx state=started enabled=true
+  notify: reload systemd
+  when: cortex_install_nginx
+  tags: ['cortex']

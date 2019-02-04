@@ -1,0 +1,13 @@
+- name: restart cortex
+  service: name=cortex state=restarted
+  notify: wait for the service to come up
+
+- name: reload nginx
+  service: name=nginx state=restarted
+  when: cortex_configure_nginx
+
+- name: reload systemd
+  shell: systemctl daemon-reload
+
+- name: wait for the service to come up
+  wait_for: port={{ cortex_http_port }} timeout=30

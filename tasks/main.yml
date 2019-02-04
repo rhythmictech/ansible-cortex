@@ -1,0 +1,76 @@
+---
+
+- name: copy thehive/cortex rpm gpg keys
+  copy: src=etc.pki.rpm-gpg.GPG-TheHive-Project dest=/etc/pki/rpm-gpg/GPG-TheHive-Project owner=root group=root mode=0644
+  when: cortex_install_repo
+  tags: ['cortex']
+
+- name: install thehive/cortex rpm gpg keys
+  rpm_key: state=present key=/etc/pki/rpm-gpg/GPG-TheHive-Project
+  when: cortex_install_repo
+  tags: ['cortex']
+
+- name: install thehive/cortex yum repo
+  copy: src=etc.yum.repos.d.thehive-rpm.repo dest=/etc/yum.repos.d/thehive-rpm.repo owner=root group=root mode=0644
+  when: cortex_install_repo
+  tags: ['cortex']
+
+- name: Install cortex packages
+  package: name="{{ cortex_packages }}" state=present
+  tags: ['cortex']
+
+- name: Place cortex seed data and mapping
+  template:
+    src: '{{ item }}.j2'
+    dest: '/etc/cortex/{{ item }}'
+    owner: root
+    mode: 0400
+  with_items:
+    - cortex_data.json
+    - cortex_mappings.json
+  when: cortex_load_seed_data
+  tags: ['cortex']
+
+- name: Load cortex mapping
+  command: "curl -s -H 'Content-Type: application/json' -XPUT http://localhost:9200/{{ cortex_index }} --data-binary @/etc/cortex/cortex_mappings.json"
+  when: cortex_load_seed_data
+  tags: ['cortex']
+
+- name: Load cortex seed data
+  command: "curl -s -H 'Content-Type: application/json' -XPOST http://localhost:9200/_bulk --data-binary @/etc/cortex/cortex_data.json"
+  when: cortex_load_seed_data
+  tags: ['cortex']
+
+- name: Place cortex configuration
+  template:
+    src: 'application.conf.j2'
+    dest: '/etc/cortex/application.conf'
+  notify: restart cortex
+  tags: ['cortex']
+
+- name: Pull analyzers from Git
+  git:
+    repo: https://github.com/TheHive-Project/Cortex-Analyzers.git
+    dest: /opt/cortex_analyzers
+  tags: ['cortex']
+
+- name: Process requirements for enabled analyzers
+  pip:
+    requirements: "/opt/cortex_analyzers/analyzers/{{ item }}/requirements.txt"
+  with_items: "{{ cortex_python2_analyzers }}"
+  tags: ['cortex']
+
+- name: Process requirements for enabled analyzers (python3)
+  pip:
+    requirements: "/opt/cortex_analyzers/analyzers/{{ item }}/requirements.txt"
+    executable: pip3.6
+  with_items: "{{ cortex_python3_analyzers }}"
+  tags: ['cortex']
+
+- name: enable and start cortex
+  service: name=cortex state=started enabled=true
+  notify: reload systemd
+  tags: ['cortex']
+
+- include: nginx.yml
+  when: cortex_install_nginx or cortex_configure_nginx

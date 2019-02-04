@@ -1,0 +1,55 @@
+
+play.http.secret.key = "{{ cortex_crypto_secret }}"
+
+http.port = {{ cortex_http_port }}
+http.address = {{ cortex_http_addr }}
+
+# ElasticSearch
+search {
+  # Name of the index
+  index = {{ cortex_es['index'] }}
+  # Name of the ElasticSearch cluster
+  cluster = {{ cortex_es['cluster'] }}
+  # Address of the ElasticSearch instance
+  host = ["{{ cortex_es['endpoint'] }}"]
+}
+
+
+auth {
+
+  method.basic = false
+
+{% if cortex_auth_vouch['enabled'] %}
+  method.header = true
+  header.name = {{ cortex_auth_vouch['logon_header'] }}
+{% endif %}
+{% if cortex_auth_ldap['enabled'] %}
+  type = [ldap]
+
+  ldap {
+		# LDAP server name or address. Port can be specified (host:port). This parameter is required.
+		serverNames = ["{{ cortex_auth_ldap['servers'] | map('quote') | join(', ') }}"]
+
+		# Use SSL to connect to directory server
+		useSSL = {{ cortex_auth_ldap['use_ssl']|lower }}
+
+		# Account to use to bind on LDAP server. This parameter is required.
+		bindDN = "{{ cortex_auth_ldap['bind_dn'] }}"
+
+		# Password of the binding account. This parameter is required.
+		bindPW = "{{ cortex_auth_ldap['bind_pw'] }}"
+
+		# Base DN to search users. This parameter is required.
+		baseDN = "{{ cortex_auth_ldap['search_base'] }}"
+
+		# Filter to search user {0} is replaced by user name. This parameter is required.
+		filter = "(cortex_auth_ldap['username_attribute']={0})"
+	}
+{% else %}
+  type = [local]
+{% endif %}
+}
+
+analyzer {
+  path = ["{{ cortex_analyzer_paths | map('quote') | join(', ') }}"]
+}

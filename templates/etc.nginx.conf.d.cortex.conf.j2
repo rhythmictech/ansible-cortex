@@ -1,0 +1,141 @@
+ server {
+  listen 80;
+  listen [::]:80;
+
+  server_name {{ cortex_url }};
+
+  access_log                        /var/log/nginx/cortex_access.log;
+
+  client_max_body_size              2G;
+  client_header_buffer_size         8k;
+
+{% if cortex_auth_vouch['enabled'] %}
+  auth_request /validate;
+
+  location = /validate {
+    proxy_pass                      {{ cortex_auth_vouch['url']}}/validate;
+    proxy_pass_request_body         off;
+    proxy_set_header                Content-Length "";
+
+    auth_request_set                $auth_resp_x_vouch_user $upstream_http_x_vouch_user;
+    auth_request_set                $auth_resp_jwt $upstream_http_x_vouch_jwt;
+    auth_request_set                $auth_resp_err $upstream_http_x_vouch_err;
+    auth_request_set                $auth_resp_failcount $upstream_http_x_vouch_failcount;
+  }
+
+  error_page 401 = @error401;
+
+  location @error401 {
+      return 302 {{ cortex_auth_vouch['url']}}/login?url=$scheme://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err;
+  }
+{% endif %}
+
+  location / {
+
+  proxy_pass                          http://localhost:{{ cortex_http_port }}/;
+
+    proxy_set_header                  Host $host;
+    proxy_set_header                  X-Real-IP $remote_addr;
+    proxy_set_header                  X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header                  X-Forwarded-Proto $scheme;
+
+    proxy_connect_timeout             600;
+    proxy_send_timeout                600;
+    proxy_read_timeout                600;
+    send_timeout                      600;
+    proxy_buffering                   off;
+
+    proxy_http_version                1.1;
+
+{% if cortex_auth_vouch['enabled'] %}
+    auth_request_set                  $auth_resp_x_vouch_user $upstream_http_x_vouch_user;
+    auth_request_set                  $auth_resp_jwt $upstream_http_x_vouch_jwt;
+    proxy_set_header                  {{ cortex_auth_vouch['logon_header'] }} $auth_resp_x_vouch_user;
+    add_header                        X-Logged-In-User $auth_resp_x_vouch_user;
+
+{% endif %}
+  }
+
+{% for i in cortex_nginx_includes %}
+  include {{ i }}
+{% endfor %}
+
+{% if cortex_nginx_ssl['enabled'] %}
+  return 301 https://$host$request_uri;
+{% endif %}
+}
+
+{% if cortex_nginx_ssl['enabled'] %}
+server {
+
+  listen 443;
+  server_name {{ cortex_url }};
+
+  ssl_certificate           /etc/nginx/cert.crt;
+  ssl_certificate_key       /etc/nginx/cert.key;
+
+  ssl on;
+  ssl_session_cache  builtin:1000  shared:SSL:10m;
+  ssl_protocols  TLSv1.1 TLSv1.2;
+  #ssl_ciphers HIGH:!aNULL:!eNULL:!EXPORT:!CAMELLIA:!DES:!MD5:!PSK:!RC4;
+  ssl_ciphers EECDH+ECDSA+AESGCM EECDH+aRSA+AESGCM EECDH+ECDSA+SHA384 EECDH+ECDSA+SHA256 EECDH+aRSA+SHA384 EECDH+aRSA+SHA256 EECDH !RC4 !aNULL !eNULL !LOW !3DES !MD5 !EXP !PSK !SRP !DSS;
+  ssl_prefer_server_ciphers on;
+  ssl_insecure_renegotiation off;
+
+  access_log            /var/log/nginx/cortex_access.log;
+
+  client_max_body_size              2G;
+  client_header_buffer_size         8k;
+
+{% if thehive_auth_vouch['enabled'] %}
+  auth_request /validate;
+
+  location = /validate {
+    proxy_pass {{ thehive_auth_vouch['url']}}/validate;
+    proxy_pass_request_body         off;
+    proxy_set_header                Content-Length "";
+
+    auth_request_set                $auth_resp_x_vouch_user $upstream_http_x_vouch_user;
+    auth_request_set                $auth_resp_jwt $upstream_http_x_vouch_jwt;
+    auth_request_set                $auth_resp_err $upstream_http_x_vouch_err;
+    auth_request_set                $auth_resp_failcount $upstream_http_x_vouch_failcount;
+  }
+
+  error_page 401 = @error401;
+
+  location @error401 {
+      return 302 {{ cortex_auth_vouch['url']}}/login?url=$scheme://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err;
+  }
+{% endif %}
+
+  location / {
+
+    proxy_pass                          http://localhost:{{ cortex_http_port }}/;
+
+    proxy_set_header                  Host $host;
+    proxy_set_header                  X-Real-IP $remote_addr;
+    proxy_set_header                  X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header                  X-Forwarded-Proto $scheme;
+
+    proxy_connect_timeout             600;
+    proxy_send_timeout                600;
+    proxy_read_timeout                600;
+    send_timeout                      600;
+    proxy_buffering                   off;
+
+    proxy_http_version                1.1;
+
+{% if cortex_auth_vouch['enabled'] %}
+    auth_request_set                  $auth_resp_x_vouch_user $upstream_http_x_vouch_user;
+    auth_request_set                  $auth_resp_jwt $upstream_http_x_vouch_jwt;
+    proxy_set_header                  {{ cortex_auth_vouch['logon_header'] }} $auth_resp_x_vouch_user;
+    add_header                        X-Logged-In-User $auth_resp_x_vouch_user;
+
+{% endif %}
+  }
+
+{% for i in cortex_nginx_includes %}
+  include {{ i }}
+{% endfor %}
+}
+{% endif %}

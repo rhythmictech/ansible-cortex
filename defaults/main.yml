@@ -1,0 +1,122 @@
+---
+
+# Whether or not the TheHive RPM repo should be installed.
+# This is generally what you want, unless you are using your own RPM repo.
+cortex_install_repo: true
+
+# Cortex version to lock and install
+cortex_version: 2.1.3
+
+# Note that the mappings and seed data are dependent on the schema version.
+# If you are installing a version of Cortex that uses a different index name,
+# the mappings and data files need to be updated.
+cortex_index: cortex_2
+
+# Cortex URL
+cortex_url: localhost
+
+# Wheteher or not an nginx instance should be installed as a proxy
+cortex_install_nginx: true
+
+# Whether or not to configure nginx proxy
+cortex_configure_nginx: true
+
+# Referenced files will be included in each nginx server config
+cortex_nginx_includes: []
+
+# Optionally use SSL with Nginx
+cortex_nginx_ssl:
+  enabled: false
+  certificate: ""
+  key: ""
+  #cabundle: provide if using a bundle
+
+# Defines where analyzers will be found.
+cortex_analyzer_paths: ["/opt/cortex_analyzers/analyzers"]
+
+# Whether or not the Cortex-Analyzers project will be checked out
+cortex_install_public_analyzers: true
+
+# Where public repo will be cloned
+cortex_public_repo_path: "/opt/cortex_analyzers"
+
+# All analyzers are available to Cortex but the lists below will cause
+# ansible to process the requirements. Nearly all analyzers have requirements,
+# so this is essential for them to work. Unfortuantely, some analyzers use
+# python3 and some use python2 (explicitly), so identify which list to add
+# your analyzer to.
+# Only Cortex-Analyzer modules will be configured with these vars.
+cortex_python2_analyzers: []
+cortex_python3_analyzers: []
+
+# The port Cortex will listen to. This var can be changed even when using
+# the nginx proxy.
+cortex_http_port: 9001
+
+# IP address Cortex should bind to. In general, this can be left as is. However,
+# this must be set to 127.0.0.1 when authenticating through a proxy
+cortex_http_addr: "0.0.0.0"
+
+
+# Set this. Generate a key like this:
+# cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 64 | head -n 1
+cortex_secret: ""
+
+# By default, Cortex requires manual steps to configure.
+# You can optionally load a pre-configured mapping and seed data, which makes
+# Cortex immediately usable out of the box.
+cortex_load_seed_data: true
+
+# Name of the initial user to create. Note if you are using vouch or LDAP for
+# authentication, you must set this to a valid username in your directory.
+# Cortex does not create users on first logon.
+cortex_seed_initial_username: "admin"
+
+# Set this to automatically create an API key for TheHive to use. This results
+# in Cortex being ready out of the box for TheHive integration.
+# Generate a key like this:
+# cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1
+cortex_api_key: ""
+
+# Optionally use Vouch authentication (e.g., for Google Authentication, Okta, etc)
+cortex_auth_vouch:
+  enabled: false
+  url: ""
+  logon_header: THEHIVE_USER
+
+# Optionally use LDAP authentication.
+cortex_auth_ldap:
+  enabled: false
+  servers: []
+  use_ssl: ""
+  bind_dn: ""
+  bind_pw: ""
+  search_base: ""
+  username_attribute: "cn"
+
+# ElasticSearch configuration. If using recommended ES configuration, this
+# does not need to be changed.
+cortex_es:
+  index: cortex
+  cluster: thehive
+  endpoint: 127.0.0.1:9300
+
+# Packages that will be installed with Cortex
+cortex_packages:
+  - java-1.8.0-openjdk
+  - python-pip
+  - python-setuptools
+  - unzip
+  - git
+  - python-devel
+  - python36-pip
+  - python36-devel
+  - python36-setuptools
+  - ssdeep
+  - cortex-{{ cortex_version }}
+
+# Packages that will be installed if the nginx proxy is used.
+# libsemanage-python is necessary for selinux.
+cortex_nginx_packages:
+  - nginx
+  - libsemanage-python
